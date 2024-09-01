@@ -50,7 +50,7 @@ if __name__ == "__main__":
     print(f"Messages received at: {Spoofed_AppleWin_hostname}:{Spoofed_AppleWin_port}\nwill be forwarded to: {Real_AppleWin_hostname}:{Real_AppleWin_port}\nand vice versa\n\n")
     
     
-    print(f"Waiting for connections on {Real_AppleWin_hostname}:{Real_AppleWin_port} <Spoofed AppleWin>")
+    print(f"Waiting for connections on {Spoofed_AppleWin_hostname}:{Spoofed_AppleWin_port} <Spoofed AppleWin>")
     # fujinet will try and connect to me
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as spoofed_applewin:
         try:
@@ -72,24 +72,28 @@ if __name__ == "__main__":
                 print(error)
         
         """
+        
+        print("Attempting to connect to REAL AppleWin {Real_AppleWin_hostname}:{Real_AppleWin_hostname}")
         # We will connect to the real AppleWin
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as real_applewin:
-            try:
-                real_applewin.connect((Real_AppleWin_hostname, Real_AppleWin_port))
-                print(f"Connected to {Real_AppleWin_hostname}:{Real_AppleWin_port}")
-            except Exception as e:
-                print(f"Failed to connected to {Real_AppleWin_hostname}:{Real_AppleWin_port}\n{e}")
-                exit(-1)
-            
-            fujinet  = f"{Spoofed_AppleWin_hostname}:{Spoofed_AppleWin_port}"
-            applewin = f"{Real_AppleWin_hostname}:{Real_AppleWin_port}"
+        while True:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as real_applewin:
+                try:
+                    real_applewin.connect((Real_AppleWin_hostname, Real_AppleWin_port))
+                    print(f"Connected to {Real_AppleWin_hostname}:{Real_AppleWin_port}")
+                except Exception as e:
+                    printf(".", end='')
+                    time.sleep(1)
+                    continue
+                
+                fujinet  = f"{Spoofed_AppleWin_hostname}:{Spoofed_AppleWin_port}"
+                applewin = f"{Real_AppleWin_hostname}:{Real_AppleWin_port}"
 
-            thread1 = threading.Thread(target = threaded_forward, args = (fujinet_connection, real_applewin_connection, fujinet,  applewin))
-            thread2 = threading.Thread(target = threaded_forward, args = (real_applewin_connection, fujinet_connection, applewin, fujinet))
+                thread1 = threading.Thread(target = threaded_forward, args = (fujinet_connection, real_applewin_connection, fujinet,  applewin))
+                thread2 = threading.Thread(target = threaded_forward, args = (real_applewin_connection, fujinet_connection, applewin, fujinet))
                 
                 
-            thread1.start()
-            thread2.start()
+                thread1.start()
+                thread2.start()
             
             thread1.join()
             thread2.join()
