@@ -12,11 +12,11 @@ if sys.path[0] != my_modules_path:
 
 from slip import *
 
-forward_to_hostname = 'fujinet-vm.local'
-port_forward_to 	= 1985
+Spoofed_AppleWin_hostname  	= 'Ubuntu24.local'
+Spoofed_AppleWin_port 		= 1986
 
-message_in_hostname = socket.gethostname()
-message_in_port 	= 1985  
+Real_AppleWin_hostname 		= 'localhost'
+Real_AppleWin_port			= 1985  
 
 global communicating
 
@@ -47,37 +47,49 @@ if __name__ == "__main__":
     
     print("Python Protocol Snooper\n")
     
-    print(f"Messages received at: {message_in_hostname}:{message_in_port}\nwill be forwarded to: {forward_to_hostname}:{port_forward_to}\nand vice versa\n\n")
+    print(f"Messages received at: {Spoofed_AppleWin_hostname}:{Spoofed_AppleWin_port}\nwill be forwarded to: {Real_AppleWin_hostname}:{Real_AppleWin_port}\nand vice versa\n\n")
     
     
-    # Connect to the original server
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as forward_to:
+    print(f"Waiting for connections on {Real_AppleWin_hostname}:{Real_AppleWin_port} <Spoofed AppleWin>")
+    # fujinet will try and connect to me
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as spoofed_applewin:
         try:
-            forward_to.connect((forward_to_hostname, port_forward_to))
-            print(f"Connected to {forward_to_hostname}:{port_forward_to}")
-        except Exception as e:
-            print(f"Failed to connected to {forward_to_hostname}:{port_forward_to}\n{e}")
-            exit(-1)
-
-
-        print(f"Waiting for connections on {message_in_hostname}:{message_in_port}")
-        # Connections in
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as message_in:
+            spoofed_applewin.bind((Spoofed_AppleWin_hostname, Spoofed_AppleWin_port))
+            spoofed_applewin.listen()
+            fujinet_connection, fujinet_address = spoofed_applewin.accept()
+            print(f"Received connection from Fujinet {fujinet_address}")
+        except Exception as error:
+            print(error)
+            
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as real_applewin:
             try:
-                message_in.bind((message_in_hostname, message_in_port))
-                message_in.listen()
-                in_connection, ip_address = message_in.accept()
-                print(f"Received connection from {ip_address}")
+                real_applewin.bind((Real_AppleWin_hostname, Real_AppleWin_port))
+                real_applewin.listen()
+                real_applewin_connection, real_applewin_address = real_applewin.accept()
+                print(f"Received connection from Fujinet {fujinet_address}")
             except Exception as error:
                 print(error)
+        
+            """
+            # We will connect to the real 
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as real_applewin:
+                try:
+                    real_applewin.connect((Real_AppleWin_hostname, Real_AppleWin_port))
+                    print(f"Connected to {Real_AppleWin_hostname}:{Real_AppleWin_port}")
+                except Exception as e:
+                    print(f"Failed to connected to {Real_AppleWin_hostname}:{Real_AppleWin_port}\n{e}")
+                    exit(-1)
+            """
+            fujinet  = f"{fujinet_address[0]}:{fujinet_address[1]}"
+            applewin = f"{real_applewin_address[0]}:{real_applewin_address[1]}"
 
-            thread1 = threading.Thread(target = threaded_forward, args = (in_connection, forward_to, ip_address,  'to server'))
-            thread2 = threading.Thread(target = threaded_forward, args = (forward_to, in_connection, 'server', ip_address))
-            
-            
+            thread1 = threading.Thread(target = threaded_forward, args = (fujinet_connection, real_applewin_connection, fujinet,  applewin))
+            thread2 = threading.Thread(target = threaded_forward, args = (real_applewin_connection, fujinet_connection, applewin, fujinet))
+                
+                
             thread1.start()
             thread2.start()
             
             thread1.join()
             thread2.join()
-                
+                    
