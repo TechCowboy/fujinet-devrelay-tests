@@ -60,7 +60,8 @@ if __name__ == "__main__":
             print(f"Received connection from Fujinet {fujinet_address}")
         except Exception as error:
             print(error)
-            
+
+        """
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as real_applewin:
             try:
                 real_applewin.bind((Real_AppleWin_hostname, Real_AppleWin_port))
@@ -70,18 +71,18 @@ if __name__ == "__main__":
             except Exception as error:
                 print(error)
         
-            """
-            # We will connect to the real 
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as real_applewin:
-                try:
-                    real_applewin.connect((Real_AppleWin_hostname, Real_AppleWin_port))
-                    print(f"Connected to {Real_AppleWin_hostname}:{Real_AppleWin_port}")
-                except Exception as e:
-                    print(f"Failed to connected to {Real_AppleWin_hostname}:{Real_AppleWin_port}\n{e}")
-                    exit(-1)
-            """
-            fujinet  = f"{fujinet_address[0]}:{fujinet_address[1]}"
-            applewin = f"{real_applewin_address[0]}:{real_applewin_address[1]}"
+        """
+        # We will connect to the real AppleWin
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as real_applewin:
+            try:
+                real_applewin.connect((Real_AppleWin_hostname, Real_AppleWin_port))
+                print(f"Connected to {Real_AppleWin_hostname}:{Real_AppleWin_port}")
+            except Exception as e:
+                print(f"Failed to connected to {Real_AppleWin_hostname}:{Real_AppleWin_port}\n{e}")
+                exit(-1)
+            
+            fujinet  = f"{Spoofed_AppleWin_hostname}:{Spoofed_AppleWin_port}"
+            applewin = f"{Real_AppleWin_hostname}:{Real_AppleWin_port}"
 
             thread1 = threading.Thread(target = threaded_forward, args = (fujinet_connection, real_applewin_connection, fujinet,  applewin))
             thread2 = threading.Thread(target = threaded_forward, args = (real_applewin_connection, fujinet_connection, applewin, fujinet))
