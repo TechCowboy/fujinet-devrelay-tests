@@ -33,12 +33,12 @@ char filename[] = { "snoopy.cfg"};
 typedef struct ARGUMENTS
 {
     pthread_t id;
-    int in_connection;
-    int out_connection;
+    int  *in_connection;
+    int  *out_connection;
     char *in_msg;
     char *out_msg;
-    int *stop;
-    int stopped;
+    int  *stop;
+    int  stopped;
 } ARGUMENTS;
 
 /* Signal Handler for SIGINT */
@@ -69,54 +69,6 @@ void sigintHandler(int sig_num)
     
 }
 
-/*
-Protocol Snooper - Snoopy - By Norman Davie
-Messages received at: ubuntu24:1986 (fujinet connects here)
-will be forwarded to: localhost:1985 (Real AppleWin)
-and vice versa
-hostname: Ubuntu24   IP: 192.168.1.23
-Waiting for fujinet to connect here: ubuntu24:1986 <Spoofed AppleWin - this application>
-FujiNet        Spoofed AppleWin        RealAppleWin
-
-*** Received connection from Fujinet (192.168.1.23:17029) ***
-
-FujiNet <----> Spoofed AppleWin        RealAppleWin
-Attempting to connect to REAL AppleWin localhost:1985
-
-Connected to Real AppleWin localhost:1985
-
-FujiNet <----> Spoofed AppleWin <----> RealAppleWin
-
-**** Snooping has begun! ****
-fujinet_connection:  4
-spoofed_applewin:  3
-Forward messages from  FujiNet -> AppleWin
-a->in_connection:  4
-a->out_connection:  3
-Forward messages from AppleWin ->  FujiNet
-a->in_connection:  3
-a->out_connection:  4
-AppleWin - bytes_read: -1   errno: 107
-AppleWin - bytes_read: -1   errno: 107
- FujiNet - bytes_read: -1   errno: 11
-AppleWin - bytes_read: -1   errno: 107
-AppleWin - bytes_read: -1   errno: 107
- FujiNet - bytes_read: -1   errno: 11
-AppleWin - bytes_read: -1   errno: 107
-AppleWin - bytes_read: -1   errno: 107
- FujiNet - bytes_read: -1   errno: 11
-cAppleWin - bytes_read: -1   errno: 107
-cAppleWin - bytes_read: -1   errno: 107
- FujiNet - bytes_read: -1   errno: 11
-AppleWin - bytes_read: -1   errno: 107
-^C
-Closing Spoofed AppleWin Connection
-
-Closing FujiNet Connection
-
-Closing Real AppleWin Connection
-*/
-
 void *threaded_forward(void *p)
 {
     ARGUMENTS *a = (ARGUMENTS *)p;
@@ -128,12 +80,12 @@ void *threaded_forward(void *p)
 
     printf("Forward messages from %s -> %s\n", a->in_msg, a->out_msg);
 
-    //memset(&timeout, 0, sizeof(timeout));
-
-    timeout.tv_sec = 1;
+    // timeout if we wait more than a second.
+    // this is so the thread knows to stop.
+    timeout.tv_sec  = 1;
     timeout.tv_usec = 0;
 
-    if (setsockopt(a->in_connection, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+    if (setsockopt(*a->in_connection, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
     {
         printf("setsockopt failed\n");
     }
@@ -142,10 +94,10 @@ void *threaded_forward(void *p)
     while (*a->stop == 0)
     {
         // get message from client
-        bytes_read = read(a->in_connection, slip_message, sizeof(slip_message) - 1);
+        bytes_read = read(*a->in_connection, slip_message, sizeof(slip_message) - 1);
         if (bytes_read > 0)
         {
-            if (send(a->out_connection, slip_message, bytes_read, 0) == -1)
+            if (send(*a->out_connection, slip_message, bytes_read, 0) == -1)
             {
                 printf("%s - send failed\n", a->out_msg);
                 break;
@@ -187,12 +139,12 @@ void *threaded_forward(void *p)
             }
         }
     }
-    printf("%s stop: %d\n", a->in_msg, *a->stop);
-    close(a->in_connection);
+    close(*a->in_connection);
+    *a->in_connection = 0;
+
     printf("%s Forwarder Exiting...\n", a->in_msg);
-    *a->stop = 1;
+    *a->stop   = 1; // ask all forward threads to stop
     a->stopped = 1;
-    printf("%s stop: %d  stopped: %d\n", a->in_msg, *a->stop, a->stopped);
     return NULL;
 }
 
@@ -355,11 +307,12 @@ int main(int arc, char **argv)
     printf("and vice versa\n");
     printf("hostname: %s   IP: %s\n", hostname, local_ip);
 
-    printf("FujiNet        Snoopy        RealAppleWin\n\n");
-    printf("Waiting for fujinet to connect here: %s:%d <Spoofed AppleWin - this application>\n", Spoofed_AppleWin_hostname, Spoofed_AppleWin_port);
-
     while (true)
     {
+        printf("FujiNet        Snoopy        RealAppleWin\n\n");
+        printf("Waiting for fujinet to connect here: %s:%d <Spoofed AppleWin - this application>\n", Spoofed_AppleWin_hostname, Spoofed_AppleWin_port);
+
+
         // We are a server
 
         stop = 0;
@@ -472,16 +425,16 @@ int main(int arc, char **argv)
         printf("**** Snooping has begun! ****\n");
 
         thread1_args.id = 1;
-        thread1_args.in_connection = fujinet_connection;
-        thread1_args.out_connection = real_applewin;
+        thread1_args.in_connection  = &fujinet_connection;
+        thread1_args.out_connection = &real_applewin;
         thread1_args.in_msg  = " FujiNet";
         thread1_args.out_msg = "AppleWin";
         thread1_args.stop    = &stop;
         thread1_args.stopped = 0;
 
         thread1_args.id = 2;
-        thread2_args.in_connection = real_applewin;
-        thread2_args.out_connection = fujinet_connection;
+        thread2_args.in_connection  = &real_applewin;
+        thread2_args.out_connection = &fujinet_connection;
         thread2_args.in_msg  = "AppleWin";
         thread2_args.out_msg = " FujiNet";
         thread2_args.stop    = &stop;
@@ -498,12 +451,25 @@ int main(int arc, char **argv)
         printf("Threads stopped\n");
 
         printf("Closing...\n");
+
         // closing the connected socket
-        close(spoofed_applewin);
+        if (spoofed_applewin)
+        {
+            printf("Closing Spoofed AppleWin Connection\n");
+            close(spoofed_applewin);
+        }
 
-        close(fujinet_connection);
+        if (fujinet_connection)
+        {
+            printf("Closing FujiNet Connection\n");
+           close(fujinet_connection);
+        }
 
-        close(real_applewin);
+        if (real_applewin)
+        {
+            printf("Closing AppleWin Connection\n");
+            close(real_applewin);
+        }    
     }
 }
 
