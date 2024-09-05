@@ -471,9 +471,6 @@ int main(int arc, char **argv)
         printf("FujiNet <----> Snoopy <----> RealAppleWin\n\n");
         printf("**** Snooping has begun! ****\n");
 
-        printf("fujinet_connection:  %d\n", fujinet_connection);
-        printf("  spoofed_applewin:  %d\n", real_applewin);
-
         thread1_args.id = 1;
         thread1_args.in_connection = fujinet_connection;
         thread1_args.out_connection = real_applewin;
